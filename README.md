@@ -1,4 +1,4 @@
-# turbo-comb
+# Turbo Comb
 A toolbox for correcting dual comb spectroscopy data
 
 This code is intended to demonstrate the algorithm described in
