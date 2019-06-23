@@ -17,21 +17,9 @@ param.excess_noise = 2.76;               % Excess measurement noise factor
                                          % Code will calculate PSD near the Nyquist frequency and multiply by this to determine the noise.
                                          % If you don't know, set to 1 and run EM 
 
-% Diagnostic parameters (used for plotting only). Helpful for simulated data.
-% param.knownns = ns;                    
-% param.knownA = As;
-param.knownfD = fD;
-param.knownf0 = f0;
-param.knownp0 = p0;
-param.knownpD = pD;
-param.plotme  = 1;                       % Plot results?
-
-% Other parameters. Don't change these unless you need to
-param.initfrac = 0.1;                    % fraction of data to use for interferogram initialization procedure
-param.Ninits = 2;                        % number of times to run interferogram initialization procedure
-param.global_search_stds = 6;            % number of std devs to cover for global search
-param.global_search_maxsize = 1e6;       % maximum on the global search num elements
-param.EM = 1;                            % do an expectation maximization?
+% Optional parameters 
+param.knownfD = fD;                      % User-supplied repetition rate. When supplied, is plotted alongside estimate (NOT used otherwise).
+param.knownf0 = f0;                      % User-supplied offset. When supplied, is plotted alongside estimate (NOT used otherwise).
 
 [sqrt(diag(param.Q)).',param.excess_noise,Inf]
 oK=Augmented_Kalman(data,param);         % Run the filter!

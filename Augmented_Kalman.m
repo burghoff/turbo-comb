@@ -1,11 +1,47 @@
 function output = Augmented_Kalman(data,param)
-%% Requirements:
+%% AUGMENTED_KALMAN: runs the generalized correction procedure in Burghoff et al., Optics Letters (2019)
+% Requirements:
 % 1. Newer versions of MATLAB with implicit expansion
 % 2. XSum: sum with error compensation (https://www.mathworks.com/matlabcentral/fileexchange/26800-xsum)
 %
+% Inputs:
+%   data: A structure that contains two fields:
+%       sn: a complex signal represented by a column vector
+%       dt: the timestep
+%   param: A structure that configures the parameters of the correction
+%       Required parameters:
+%       fD_range:     A two-element row vector that determines the frequency range over which the 
+%                     repetition rate is known to occur in. Most easily determined by examining the FFT of |sn|^2.
+%                     For now, we do not have an easy robust way of automating this. (Suggestions welcome!)
+%       Q:            4x4 process noise matrix, arranged in order (p0,pD,f0,fD)
+%                     If you don't know, set to diag([1,.01,1,.01].^2) and run EM.
+%       excess_noise: Excess noise factor. (How much larger the noise is than the top 10% of the frequency space.)
+%                     If you don't know, set to 1 and run EM.
 %
+%       Optional parameters:
+%       plotme:     Whether or not to plot the current status of the correction (default: 1)
+%       knownns:    When set, the code will only use the comb lines you specify (default: fill the Nyquist space)
+%       knownA:     When set, amplitudes will be set to these values instead of determined by demodulation
+%                   Useful for debugging simulated data. (default: demodulate instead)
+%       knownfD:    User-supplied repetition rate. When supplied, is plotted alongside estimate (NOT used otherwise).
+%       knownf0:    User-supplied offset. When supplied, is plotted alongside estimate (NOT used otherwise).
+%       pulsed_mode_apodization: When data is in pulsed mode, enabling this triggers an apodization procedure
+%                                that reduces the computation time. Determines the fraction of the data that is
+%                                kept (i.e., 0.1 means that only 10% of the data near each burst is used).
+%                                Not fully tested, so use with some caution. 
+%       initfrac:   When the processing starts, we do not know the amplitudes and need to bootstrap them. Set aside
+%                   this fraction of the data to pre-process, so we can determine an initial estimate (default=0.1).
+%       Ninits:     How many times to run the initialization procedure (default=2)
+%       global_search_stds:      How large of a range to cover when running the global search, in terms of the std
+%                                deviations of the current estimate. (default=6, i.e. six sigma)
+%       global_search_maxsize:   Can be used to limit the number of elements in the global search tensor. (default=1e6) 
+%       EM:                      Whether or not to perform expectation maximization (default=1) 
+%       post_regularization:     Post-regularization procedure to use (default='lpf', finds the band-limited signal
+%                                that best fits the data)
+%       
 %% Get data from structures
 % To avoid precision issues, scale time to be in units of the approximate rep rate
+param = Initialize_Params(param);
 dt= data.dt; sn= data.sn(:,1); N=length(data.sn);
 
 Ts = 1/mean(param.fD_range);
@@ -37,7 +73,7 @@ pD0 = 0;                   % phases
 f00 = medf;0;
 p00 = 0;
 
-givenn = isfield(param,'knownns');
+givenn = ~isnan(param.knownns);
 if ~givenn, n = [round((-1/dt-f00)/fDlo/2):round((1/dt-f00)/fDlo/2)];
 else,       n = reshape(param.knownns,1,length(param.knownns));
 end
@@ -54,7 +90,7 @@ PpD =  (2*pi)^2*10;                 % defined at t=0
 % In pulsed mode, signal is sparse so apodizing can save a lot of time /
 % memory. This is somewhat experimental and untested, though.
 M0 = ceil(1/((fDlo+fDhi)/2*dt));
-if isfield(param,'pulsed_mode_apodization')
+if ~isnan(param.pulsed_mode_apodization)
     [pks,locs]=findpeaks(abs(sn).^2,'MinPeakDistance',0.75*M0);
     M = ceil(param.pulsed_mode_apodization/((fDlo+fDhi)/2*dt));
     if mod(M,2)==1, Mr = [-(M-1)/2,(M-1)/2];
@@ -159,9 +195,9 @@ end
 pj1 = [0:-2*pi*fDlo*dt:-pi]; pj2 = [0:2*pi*fDlo*dt:pi];
 pj0 = [fliplr(pj1),pj2(2:end)];         % densest phi_r grid we might need
 
-givenA = isfield(param,'knownA');
-givenf0 = isfield(param,'knownf0');
-givenfD = isfield(param,'knownfD');
+givenA  = ~isnan(param.knownA);
+givenf0 = ~isnan(param.knownf0);
+givenfD = ~isnan(param.knownfD);
 if ~givenA
     An = ones(Nl,Nb)*NaN;
 %     An(:,1) = mean(expn(x0).*sn(starts(1):fstops(1)),1).';
@@ -379,7 +415,7 @@ for k=Nb:-1:1
     end
 end
 
-%% Resample onto a 1-timestep grid and low pass filter under the assumption that our noise is bandlimited
+%% Resample onto a 1-timestep grid and perform post-regularization
 [ws,p0,pD] = deal(zeros(size(sn)));
 for k=1:Nb
     p0(starts(k):fstops(k)) = xkn(k,lp0)+2*pi*(ts(starts(k):fstops(k))-ts(starts(k)))*xkn(k,lf0);
@@ -388,12 +424,17 @@ for k=1:Nb
 end
 vr = [starts(1):stops(end)]; % valid range
 ws = ws(vr); p0 = p0(vr); pD = pD(vr);
-fDm = (pD(end)-pD(1))/(ts(vr(end))-ts(vr(1)))/2/pi;
-p0m = (p0(end)-p0(1))/(ts(vr(end))-ts(vr(1)))*(ts(vr)-ts(vr(1)))+p0(1);
-pDm = (pD(end)-pD(1))/(ts(vr(end))-ts(vr(1)))*(ts(vr)-ts(vr(1)))+pD(1);
 
-p02 = Weighted_LPF(ts(vr),p0-p0m,fDm/2,ws); p0 = p02+p0m;
-pD2 = Weighted_LPF(ts(vr),pD-pDm,fDm/2,ws); pD = pD2+pDm;
+switch param.post_regularization
+    case 'lpf'
+    % Low pass filter under the assumption that noise is bandlimited
+        fDm = (pD(end)-pD(1))/(ts(vr(end))-ts(vr(1)))/2/pi;
+        p0m = (p0(end)-p0(1))/(ts(vr(end))-ts(vr(1)))*(ts(vr)-ts(vr(1)))+p0(1);
+        pDm = (pD(end)-pD(1))/(ts(vr(end))-ts(vr(1)))*(ts(vr)-ts(vr(1)))+pD(1);
+
+        p02 = Weighted_LPF(ts(vr),p0-p0m,fDm/2,ws); p0 = p02+p0m;
+        pD2 = Weighted_LPF(ts(vr),pD-pDm,fDm/2,ws); pD = pD2+pDm;
+end
 f0 = diff(p0)/dt/2/pi; f0=[f0;f0(end)];
 fD = diff(pD)/dt/2/pi; fD=[fD;fD(end)];
 
@@ -465,6 +506,7 @@ output.Psn_fDc = output.Psn_fDc*Ts;
 output.Psn_f0c = output.Psn_f0c*Ts;
 output.Psn     = output.Psn    *Ts;
 output.npsd    = output.npsd   *Ts;
+output.data = data;
 end
 
 function Vf = Weighted_LPF(ts,Vs,freq,wk)
@@ -512,5 +554,20 @@ function Vf = Weighted_LPF(ts,Vs,freq,wk)
     Vf = real(ifft(ifftshift(Vf))); Vf=Vf(1:N);
 end
 
-
-
+function pout = Initialize_Params(pin)
+    pout = pin;
+    
+    if ~isfield(pout,'plotme'),     pout.plotme = 1;            end
+    if ~isfield(pout,'knownns'),    pout.knownns = NaN;         end
+    if ~isfield(pout,'knownA'),     pout.knownA =  NaN;         end
+    if ~isfield(pout,'knownfD'),    pout.knownfD = NaN;         end
+    if ~isfield(pout,'knownf0'),    pout.knownf0 = NaN;         end
+    
+    if ~isfield(pout,'pulsed_mode_apodization'), pout.pulsed_mode_apodization = NaN;        end
+    if ~isfield(pout,'initfrac'),                pout.initfrac = 0.1;                       end
+    if ~isfield(pout,'Ninits'),                  pout.Ninits = 2;                           end
+    if ~isfield(pout,'global_search_stds'),      pout.global_search_stds= 6;                end
+    if ~isfield(pout,'global_search_maxsize'),   pout.global_search_maxsize= 1e6;           end
+    if ~isfield(pout,'EM'),                      pout.EM= 1;                                end
+    if ~isfield(pout,'post_regularization'),     pout.post_regularization= 'lpf';           end
+end
