@@ -1,5 +1,6 @@
 function output = Augmented_Kalman(data,param)
-%% AUGMENTED_KALMAN: runs the generalized correction procedure in Burghoff et al., Optics Letters (2019)
+%% AUGMENTED_KALMAN: runs the generalized correction procedure in Burghoff et al., Optics Letters (2019).
+% If you found this useful in your research, then please cite our work!
 % Requirements:
 % 1. Newer versions of MATLAB with implicit expansion
 % 2. XSum: sum with error compensation (https://www.mathworks.com/matlabcentral/fileexchange/26800-xsum)
