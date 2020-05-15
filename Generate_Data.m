@@ -44,7 +44,7 @@ fD = real(ifft(ifftshift(FfD)));
 
 
 wn=1*(randn(N,1)+i*randn(N,1));                                     % white measurement noise
-As= sqrt(2/N * 1^2 * SNRs' ) .* exp(1*i*rand(size(ns))*2*pi);       %As=As(randperm(length(ns))); 
+As= sqrt(2/N * 1^2 * SNRs' ) .* exp(1*i*rand(size(ns))*2*pi);       % As=As(randperm(length(ns))); 
 nflr_fft = 1^2 * 2 * N; nflr_sig = 2/N*1^2;
 % signal FFT = N^2*abs(As).^2, noise  FFT = wn^2 * 2 * N
 % ergo signal equal to noise has As^2 = 2/N*wn^2
