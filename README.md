@@ -2,7 +2,8 @@
 A toolbox for correcting dual comb spectroscopy data
 
 This code is intended to demonstrate the algorithm described in
-"Generalized method for the computational phase correction of arbitrary dual comb signals" by Burghoff et al.
+"Generalized method for the computational phase correction of arbitrary dual comb signals" by Burghoff et al. (D. Burghoff, N. Han, and J. H. Shin, “Generalized method for the computational phase correction of arbitrary dual comb signals,” Opt. Lett., vol. 44, no. 12, pp. 2966–2969, June 2019., https://dx.doi.org/10.1364/ol.44.002966)
+
 
 To run a basic demonstration of the technique, run Demo_Augmented_Kalman.m.
 This does the following:
