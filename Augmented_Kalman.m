@@ -544,18 +544,18 @@ if ~isfield(param,'skip_correction') || param.skip_correction==0
     end
 
     if paramis('post_regularization','lpf')
-        % Low pass filter under the assumption that noise is bandlimited
+        % Band-limited rubber-band filter (Xiao & Burghoff, Opt. Lett. 2025):
+        % a weighted least-squares fit in the passband with optimal padding,
+        % so the phase is low-pass filtered without edge artifacts. The valid
+        % region uses uniform weight (the filter's default) -- this is what
+        % puts the demo residuals on the coherent limit. (Non-uniform weighting
+        % of the phase, e.g. by 1/var or |sn|^2, makes the fit worse here.)
         fDm = (pD(end)-pD(1))/(ts(vr(end))-ts(vr(1)))/2/pi;
         p0m = (p0(end)-p0(1))/(ts(vr(end))-ts(vr(1)))*(ts(vr)-ts(vr(1)))+p0(1);
         pDm = (pD(end)-pD(1))/(ts(vr(end))-ts(vr(1)))*(ts(vr)-ts(vr(1)))+pD(1);
 
-        w0 = 1./varp0; w0(varp0==0)=0;
-        wD = 1./varpD; wD(varpD==0)=0;
-        
-        % p02 = Weighted_LPF(ts(vr),p0-p0m,fDm/2,ws); p0 = p02+p0m;
-        % pD2 = Weighted_LPF(ts(vr),pD-pDm,fDm/2,ws); pD = pD2+pDm;
-        [p02, ~] = Rubber_Band_Filter_Inline(ts(vr), p0-p0m, fDm/2, 'ws',w0(vr)); p0 = p02 + p0m;
-        [pD2, ~] = Rubber_Band_Filter_Inline(ts(vr), pD-pDm, fDm/2, 'ws',wD(vr)); pD = pD2 + pDm;
+        [p02, ~] = Rubber_Band_Filter_Inline(ts(vr), p0-p0m, fDm/2); p0 = p02 + p0m;
+        [pD2, ~] = Rubber_Band_Filter_Inline(ts(vr), pD-pDm, fDm/2); pD = pD2 + pDm;
     end
     f0 = diff(p0)/dt/2/pi; f0=[f0;f0(end)];
     fD = diff(pD)/dt/2/pi; fD=[fD;fD(end)];
