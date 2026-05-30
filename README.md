@@ -55,13 +55,7 @@ before/after corrected spectra.
 ### A note on the rubber-band filter
 
 The `'lpf'` regularizer is the rubber-band filter, the modern successor to the
-power-weighted `Weighted_LPF` smoother of the original 2019 implementation. Both
-solve the same band-limited weighted least-squares problem; the rubber-band
-filter adds the optimal-padding scheme that removes edge artifacts. Fed the same
-(uniform) valid-region weights they give identical results here — so only the
-rubber-band filter is shipped. Weighting the *phase* fit by `1/var` or `|sn|^2`
-(as an earlier draft did) degrades the fit and lifts the strong-line residuals
-off the coherent limit; uniform weighting is correct.
+power-weighted `Weighted_LPF` smoother of the original 2019 implementation.
 
 ## Layout
 
